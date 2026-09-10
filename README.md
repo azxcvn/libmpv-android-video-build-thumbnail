@@ -32,37 +32,13 @@ azxcvn/libmpv-android-video-build-thumbnail  (本项目)
 - 修复 CI 产物路径(`.github/workflows/build.yaml`),改为相对路径
   `buildscripts/*.jar`。
 - 修复 zip 解压后丢失的 `.sh` / `gradlew` 可执行权限。
-- **`flavors/default.sh`:解码器/解封装器/解析器改为全部打开**(本项目自有改动,同步上游时勿被覆盖):
-  - 把上游的 `--disable-decoders`/`--disable-demuxers`/`--disable-parsers` 改为
-    `--enable-decoders`/`--enable-demuxers`/`--enable-parsers`,并删除上游那份**手写白名单**。
-  - **为什么**:手写白名单的漏项是**静默失效**——构建成功,但那种格式永远解不出来,
-    用户侧表现为「音轨/字幕能列出、选中后没反应,也没有任何提示」。本项目实际踩到两次:
-    - 白名单漏 `pgssub`(PGS 蓝光位图字幕)→ 内嵌 PGS 轨选中后完全不显示
-    - 白名单漏 `truehd`(注意 `mlp` **不带出** `truehd`)→ TrueHD 音轨完全无声
-  - 全开后不再有「漏写」这一类问题;协议/编码器/滤镜仍保持上游的精确白名单,未改动。
-  - 与仓库自带的 `flavors/full.sh` 同一套依赖(`depinfo.sh` 里 `default` 与 `full` 的
-    `dep_ffmpeg`/`dep_mpv` 完全一致,都不含 `libx264`/`libvpx`/`libvorbis`),
-    因此「全开」在 default flavor 下同样可行。
+- **`flavors/default.sh`:解码器/解封装器/解析器改为全部打开**
+  (`--enable-decoders` / `--enable-demuxers` / `--enable-parsers`,删掉上游的手写白名单),
+  以修复上游白名单漏项导致的 PGS 字幕不显示与 TrueHD 音频无声。
+  协议/编码器/滤镜仍保持上游白名单,**同步上游时勿被覆盖**。
 
-> ⚠️ **FFmpeg configure 的组件名 ≠ codec 的日志名**,写错会在 configure 阶段直接报
-> `Unknown option`。本项目踩过的坑:
-> | codec 日志名 | configure 组件名 | 说明 |
-> |---|---|---|
-> | `hdmv_pgs_subtitle` | **`pgssub`** | 组件名取自符号 `ff_pgssub_decoder`,不含 `hdmv_` 前缀 |
-> | `truehd` | **`truehd`** | 是独立组件名(`ff_truehd_decoder`),但**和 `mlp` 都要写**——两者是 `mlpdec.c` 里两个独立解码器(`AV_CODEC_ID_MLP` / `AV_CODEC_ID_TRUEHD`),各自有独立的 `#if CONFIG_MLP_DECODER` / `#if CONFIG_TRUEHD_DECODER`,只写 `mlp` **不会**带出 `truehd`(实测:只开 mlp 时 `ff_truehd_decoder` 符号为 0,TrueHD 仍无声) |
->
-> 排查方法(改完/换内核后可自检)。**只用符号名**(`ff_<组件名>_decoder`)判断,
-> 短名/长名字符串在 `--enable-small` 下会被合并进一个大 blob,互相包含、极易误判:
-> ```bash
-> # 期望各出现 1 次(0 = 没编进去)
-> strings libmpv.so | grep -c 'ff_pgssub_decoder'
-> strings libmpv.so | grep -c 'ff_mlp_decoder'
-> strings libmpv.so | grep -c 'ff_truehd_decoder'
-> # 想一次列出全部已编入的解码器组件名(全开后会有 400+ 个):
-> strings libmpv.so | grep -o 'ff_[a-z0-9_]*_decoder' | sort -u | wc -l
-> ```
-> 反例(误导过我们):`strings libmpv.so | grep truehd` 会命中
-> `--enable-demuxer=truehd` 带来的**解封装器**名字,据此判断"解码器已编入"是错的。
+> 上述改动的**原因、自检方法与踩坑记录**见
+> [`DOCS/自有改动说明与踩坑.md`](DOCS/自有改动说明与踩坑.md)。
 
 ## 产物
 
