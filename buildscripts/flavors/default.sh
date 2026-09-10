@@ -27,18 +27,25 @@ sed -i -e 's/#define FFMPEG_CONFIGURATION.*/#define FFMPEG_CONFIGURATION ""/' ..
 
 # 注意:下面是一个反斜杠续行的长命令,续行中间**不能**插 # 注释(bash 会把注释行
 # 当成参数接到上一行),所以本文件的说明一律写在这里。
-# 本项目在解码器白名单上的自有改动(同步上游时勿被覆盖):
-#   * 字幕解码器改为顺手全开(--enable-decoder=*_subtitle + 逐个列举),
-#     因为上游白名单漏了 pgssub(PGS 位图字幕)→ 内嵌 PGS 轨选中后完全不显示。
-#   * 补 --enable-decoder=truehd + --enable-decoder=mlp:上游白名单里没有 MLP/TrueHD
-#     → TrueHD 音轨完全无声。**两个都要写**:mlpdec.c 里 ff_mlp_decoder 与
-#     ff_truehd_decoder 各自有独立的 #if CONFIG_MLP_DECODER / #if CONFIG_TRUEHD_DECODER
-#     开关(是不同的 AVCodecID),只写 mlp 不会带出 truehd。
-#     判断是否真的编进去了,看符号:ff_mlp_decoder 与 ff_truehd_decoder 应各出现 1 次。
-#   * 末尾两条 --disable-decoder=libaribcaption/libzvbi_teletext 用来兜住
-#     *_subtitle 通配(这两个需要外部库),**必须排在 enable 之后**(后者覆盖前者)。
-# 另外:configure 的组件名 ≠ codec 日志名(如 hdmv_pgs_subtitle 的组件名是 pgssub),
-# 写错会在 configure 阶段报 Unknown option,详见仓库 README。
+#
+# 本项目自有改动(同步上游时勿被覆盖):
+#   * 解码器/解封装器/解析器**全部打开**(--enable-decoders / --enable-demuxers /
+#     --enable-parsers),删掉了上游那份手写白名单。
+#     原因:白名单漏项是**静默失效**——构建成功、但那种格式永远解不出来,用户侧就是
+#     "能列出、选中后没反应"。已实际踩到两次:
+#       - 白名单漏 pgssub(PGS 蓝光位图字幕)→ 内嵌 PGS 轨选中后完全不显示
+#       - 白名单漏 truehd(注意 mlp 不带出 truehd;mlpdec.c 里 ff_mlp_decoder 与
+#         ff_truehd_decoder 是两个独立解码器/独立 CONFIG 开关)→ TrueHD 音轨无声
+#     全开后不再有"漏写"这一类问题。协议(protocol)/编码器(encoder)/滤镜(filter)
+#     仍保持上游的精确白名单,未改动。
+#   * 与仓库自带的 flavors/full.sh 同一套依赖(depinfo.sh 里 default 与 full 的
+#     dep_ffmpeg/dep_mpv 完全一致,都不带 libx264/libvpx/libvorbis),故全开是可行的。
+#     同步上游时,若上游 default.sh 又新增白名单,直接按本文件的 --enable-decoders
+#     等写法覆盖即可(不要退回逐项白名单)。
+#
+# 另:configure 的组件名 ≠ codec 日志名(如 hdmv_pgs_subtitle 的组件名是 pgssub),
+# 写错会在 configure 阶段报 Unknown option;判断解码器是否编入要看**符号名**
+# ff_<组件名>_decoder,不要用短名/长名字符串,详见仓库 README。
 ../configure \
 	--target-os=android --enable-cross-compile --cross-prefix=$ndk_triple- --ar=$AR --cc=$CC --ranlib=$RANLIB \
 	--arch=${ndk_triple%%-*} --cpu=$cpu --pkg-config=pkg-config \
@@ -54,10 +61,10 @@ sed -i -e 's/#define FFMPEG_CONFIGURATION.*/#define FFMPEG_CONFIGURATION ""/' ..
 	--pkg-config-flags=--static \
 	\
 	--disable-muxers \
-	--disable-decoders \
+	--enable-decoders \
+	--enable-demuxers \
+	--enable-parsers \
 	--disable-encoders \
-	--disable-demuxers \
-	--disable-parsers \
 	--disable-protocols \
 	--disable-devices \
 	--disable-filters \
@@ -97,157 +104,6 @@ sed -i -e 's/#define FFMPEG_CONFIGURATION.*/#define FFMPEG_CONFIGURATION ""/' ..
 	--enable-avformat \
 	--enable-swscale \
 	--enable-swresample \
-	\
-	--enable-decoder=flv \
-	--enable-decoder=h263 \
-	--enable-decoder=h263i \
-	--enable-decoder=h263p \
-	--enable-decoder=h264* \
-	--enable-decoder=mpeg1video \
-	--enable-decoder=mpeg2* \
-	--enable-decoder=mpeg4* \
-	--enable-decoder=vp6 \
-	--enable-decoder=vp6a \
-	--enable-decoder=vp6f \
-	--enable-decoder=vp8* \
-	--enable-decoder=vp9* \
-	--enable-decoder=hevc* \
-	--enable-decoder=av1* \
-	--enable-decoder=libdav1d \
-	--enable-decoder=theora \
-	--enable-decoder=msmpeg* \
-	--enable-decoder=mjpeg* \
-	--enable-decoder=wmv* \
-	\
-	--enable-decoder=aac* \
-	--enable-decoder=ac3 \
-	--enable-decoder=alac \
-	--enable-decoder=als \
-	--enable-decoder=ape \
-	--enable-decoder=atrac* \
-	--enable-decoder=eac3 \
-	--enable-decoder=flac \
-	--enable-decoder=gsm* \
-	--enable-decoder=mp1* \
-	--enable-decoder=mp2* \
-	--enable-decoder=mp3* \
-	--enable-decoder=mpc* \
-	--enable-decoder=opus \
-	--enable-decoder=ra* \
-	--enable-decoder=ralf \
-	--enable-decoder=shorten \
-	--enable-decoder=tak \
-	--enable-decoder=tta \
-	--enable-decoder=vorbis \
-	--enable-decoder=wavpack \
-	--enable-decoder=wma* \
-	--enable-decoder=pcm* \
-	--enable-decoder=dsd* \
-	--enable-decoder=dca \
-	--enable-decoder=truehd \
-	--enable-decoder=mlp \
-	\
-	--enable-decoder=*_subtitle \
-	--enable-decoder=ass \
-	--enable-decoder=ssa \
-	--enable-decoder=dvbsub \
-	--enable-decoder=dvdsub \
-	--enable-decoder=pgssub \
-	--enable-decoder=movtext \
-	--enable-decoder=pjs \
-	--enable-decoder=srt \
-	--enable-decoder=stl \
-	--enable-decoder=subrip \
-	--enable-decoder=subviewer \
-	--enable-decoder=subviewer1 \
-	--enable-decoder=text \
-	--enable-decoder=vplayer \
-	--enable-decoder=webvtt \
-	--enable-decoder=xsub \
-	--enable-decoder=sami \
-	--enable-decoder=microdvd \
-	--enable-decoder=mpl2 \
-	--enable-decoder=realtext \
-	--enable-decoder=jacosub \
-	--enable-decoder=dvb_teletext \
-	--disable-decoder=libaribcaption \
-	--disable-decoder=libzvbi_teletext \
-	\
-	--enable-demuxer=concat \
-	--enable-demuxer=data \
-	--enable-demuxer=flv \
-	--enable-demuxer=hls \
-	--enable-demuxer=latm \
-	--enable-demuxer=live_flv \
-	--enable-demuxer=loas \
-	--enable-demuxer=m4v \
-	--enable-demuxer=mov \
-	--enable-demuxer=mpegps \
-	--enable-demuxer=mpegts \
-	--enable-demuxer=mpegvideo \
-	--enable-demuxer=hevc \
-	--enable-demuxer=rtsp \
-	--enable-demuxer=mpeg4 \
-	--enable-demuxer=mjpeg* \
-	--enable-demuxer=avi \
-	--enable-demuxer=av1 \
-	--enable-demuxer=matroska \
-	--enable-demuxer=dash \
-	--enable-demuxer=webm_dash_manifest \
-	\
-	--enable-demuxer=aac \
-	--enable-demuxer=ac3 \
-	--enable-demuxer=aiff \
-	--enable-demuxer=ape \
-	--enable-demuxer=asf \
-	--enable-demuxer=au \
-	--enable-demuxer=avi \
-	--enable-demuxer=flac \
-	--enable-demuxer=flv \
-	--enable-demuxer=matroska \
-	--enable-demuxer=mov \
-	--enable-demuxer=m4v \
-	--enable-demuxer=mp3 \
-	--enable-demuxer=mpc* \
-	--enable-demuxer=ogg \
-	--enable-demuxer=pcm* \
-	--enable-demuxer=rm \
-	--enable-demuxer=shorten \
-	--enable-demuxer=tak \
-	--enable-demuxer=tta \
-	--enable-demuxer=wav \
-	--enable-demuxer=wv \
-	--enable-demuxer=xwma \
-	--enable-demuxer=dsf \
-	--enable-demuxer=truehd \
-        --enable-demuxer=dts \
-        --enable-demuxer=dtshd \
-	\
-	--enable-demuxer=ass \
-	--enable-demuxer=srt \
-	--enable-demuxer=stl \
-	--enable-demuxer=webvtt \
-	--enable-demuxer=subviewer \
-	--enable-demuxer=subviewer1 \
-	--enable-demuxer=vplayer \
-	\
-	--enable-parser=h263 \
-	--enable-parser=h264 \
-	--enable-parser=hevc \
-	--enable-parser=mpeg4 \
-	--enable-parser=mpeg4video \
-	--enable-parser=mpegvideo \
-	\
-	--enable-parser=aac* \
-	--enable-parser=ac3 \
-	--enable-parser=cook \
-	--enable-parser=dca \
-	--enable-parser=flac \
-	--enable-parser=gsm \
-	--enable-parser=mpegaudio \
-	--enable-parser=tak \
-	--enable-parser=vorbis \
- 	--enable-parser=dca \
 	\
 	--enable-filter=overlay \
 	--enable-filter=equalizer \

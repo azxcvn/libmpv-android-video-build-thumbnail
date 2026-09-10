@@ -32,29 +32,24 @@ azxcvn/libmpv-android-video-build-thumbnail  (本项目)
 - 修复 CI 产物路径(`.github/workflows/build.yaml`),改为相对路径
   `buildscripts/*.jar`。
 - 修复 zip 解压后丢失的 `.sh` / `gradlew` 可执行权限。
-- **补齐 `flavors/default.sh` 的解码器白名单**(本项目自有改动,同步上游时勿被覆盖):
-  - `--enable-decoder=pgssub` —— **PGS(蓝光位图)字幕**。上游白名单开了
-    `dvbsub`/`dvdsub`/`ass`/`subrip` 等,唯独漏了 PGS,导致内嵌 PGS 字幕轨
-    **能列出、选中后完全不显示**。
-  - `--enable-decoder=truehd` + `--enable-decoder=mlp` —— **Dolby TrueHD(MLP FBA)音频**。
-    上游白名单里有 `ac3`/`eac3`/`dca`(DTS),唯独没有 MLP/TrueHD,切到该音轨会**完全无声**
-    (mpv 只在错误日志里报 `ad`/`ao` 错误)。
-    ⚠️ **两个都必须写**:`mlpdec.c` 里 `ff_mlp_decoder` 与 `ff_truehd_decoder` 是**两个独立的
-    解码器**(`AV_CODEC_ID_MLP` / `AV_CODEC_ID_TRUEHD`),各自包在独立的
-    `#if CONFIG_MLP_DECODER` / `#if CONFIG_TRUEHD_DECODER` 里,**只写 `mlp` 不会带出 `truehd`**
-    (实测过:只开 mlp 时 `ff_truehd_decoder` 符号为 0,TrueHD 轨仍然无声)。
-  - 字幕解码器改为**顺手全开**(`*_subtitle` + 逐个列举: `ass`/`ssa`/`dvbsub`/`dvdsub`/
-    `pgssub`/`movtext`/`pjs`/`srt`/`stl`/`subrip`/`subviewer`/`subviewer1`/`text`/`vplayer`/
-    `webvtt`/`xsub`/`sami`/`microdvd`/`mpl2`/`realtext`/`jacosub`/`dvb_teletext`),
-    末尾 `--disable-decoder=libaribcaption --disable-decoder=libzvbi_teletext`
-    兜住 `*_subtitle`(这两个需要外部库)。
+- **`flavors/default.sh`:解码器/解封装器/解析器改为全部打开**(本项目自有改动,同步上游时勿被覆盖):
+  - 把上游的 `--disable-decoders`/`--disable-demuxers`/`--disable-parsers` 改为
+    `--enable-decoders`/`--enable-demuxers`/`--enable-parsers`,并删除上游那份**手写白名单**。
+  - **为什么**:手写白名单的漏项是**静默失效**——构建成功,但那种格式永远解不出来,
+    用户侧表现为「音轨/字幕能列出、选中后没反应,也没有任何提示」。本项目实际踩到两次:
+    - 白名单漏 `pgssub`(PGS 蓝光位图字幕)→ 内嵌 PGS 轨选中后完全不显示
+    - 白名单漏 `truehd`(注意 `mlp` **不带出** `truehd`)→ TrueHD 音轨完全无声
+  - 全开后不再有「漏写」这一类问题;协议/编码器/滤镜仍保持上游的精确白名单,未改动。
+  - 与仓库自带的 `flavors/full.sh` 同一套依赖(`depinfo.sh` 里 `default` 与 `full` 的
+    `dep_ffmpeg`/`dep_mpv` 完全一致,都不含 `libx264`/`libvpx`/`libvorbis`),
+    因此「全开」在 default flavor 下同样可行。
 
 > ⚠️ **FFmpeg configure 的组件名 ≠ codec 的日志名**,写错会在 configure 阶段直接报
-> `Unknown option`。本项目踩过的两个具体坑:
+> `Unknown option`。本项目踩过的坑:
 > | codec 日志名 | configure 组件名 | 说明 |
 > |---|---|---|
 > | `hdmv_pgs_subtitle` | **`pgssub`** | 组件名取自符号 `ff_pgssub_decoder`,不含 `hdmv_` 前缀 |
-> | `truehd` | **`mlp`** | `mlpdec.c` 里 `ff_mlp_decoder` 与 `ff_truehd_decoder` 是**同一文件的两个符号**,但组件名只有一个 `mlp`;写 `--enable-decoder=truehd` 会报错 |
+> | `truehd` | **`truehd`** | 是独立组件名(`ff_truehd_decoder`),但**和 `mlp` 都要写**——两者是 `mlpdec.c` 里两个独立解码器(`AV_CODEC_ID_MLP` / `AV_CODEC_ID_TRUEHD`),各自有独立的 `#if CONFIG_MLP_DECODER` / `#if CONFIG_TRUEHD_DECODER`,只写 `mlp` **不会**带出 `truehd`(实测:只开 mlp 时 `ff_truehd_decoder` 符号为 0,TrueHD 仍无声) |
 >
 > 排查方法(改完/换内核后可自检)。**只用符号名**(`ff_<组件名>_decoder`)判断,
 > 短名/长名字符串在 `--enable-small` 下会被合并进一个大 blob,互相包含、极易误判:
@@ -63,8 +58,8 @@ azxcvn/libmpv-android-video-build-thumbnail  (本项目)
 > strings libmpv.so | grep -c 'ff_pgssub_decoder'
 > strings libmpv.so | grep -c 'ff_mlp_decoder'
 > strings libmpv.so | grep -c 'ff_truehd_decoder'
-> # 想一次列出全部已编入的解码器组件名:
-> strings libmpv.so | grep -o 'ff_[a-z0-9_]*_decoder' | sort -u
+> # 想一次列出全部已编入的解码器组件名(全开后会有 400+ 个):
+> strings libmpv.so | grep -o 'ff_[a-z0-9_]*_decoder' | sort -u | wc -l
 > ```
 > 反例(误导过我们):`strings libmpv.so | grep truehd` 会命中
 > `--enable-demuxer=truehd` 带来的**解封装器**名字,据此判断"解码器已编入"是错的。
