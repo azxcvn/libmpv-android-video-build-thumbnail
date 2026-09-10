@@ -32,6 +32,24 @@ azxcvn/libmpv-android-video-build-thumbnail  (本项目)
 - 修复 CI 产物路径(`.github/workflows/build.yaml`),改为相对路径
   `buildscripts/*.jar`。
 - 修复 zip 解压后丢失的 `.sh` / `gradlew` 可执行权限。
+- **补齐 `flavors/default.sh` 的解码器白名单**(本项目自有改动,同步上游时勿被覆盖):
+  - `--enable-decoder=hdmv_pgs_subtitle` —— **PGS(蓝光位图)字幕**。上游白名单开了
+    `dvbsub`/`dvdsub`/`ass`/`subrip` 等,唯独漏了 PGS,导致内嵌 PGS 字幕轨
+    **能列出、选中后完全不显示**。
+  - `--enable-decoder=mlp` + `--enable-decoder=truehd` —— **Dolby TrueHD(MLP FBA)音频**。
+    注意 `--enable-demuxer=truehd` **不等于**有解码器:`strings libmpv.so` 里能搜到
+    `truehd` 只是解封装器的名字,没有解码器时切到该音轨会**完全无声**(mpv 只在错误日志里
+    报 `ad`/`ao` 错误)。
+
+> 排查方法(改完/换内核后可自检):
+> ```bash
+> # 该解码器的 "名字字符串"(短名)应各出现 1 次;若为 0 说明没编进去
+> strings libmpv.so | grep -c '^hdmv_pgs_subtitle$'
+> strings libmpv.so | grep -c '^truehd$'
+> strings libmpv.so | grep -c '^mlp$'
+> ```
+> 另外 `--enable-small` 会把 codec 的 `long_name` 编掉,所以**不要**用长名(如
+> `HDMV Presentation Graphic Stream subtitles`、`TrueHD`)去判断,会误判成"没编进去"。
 
 ## 产物
 

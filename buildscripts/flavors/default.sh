@@ -129,11 +129,14 @@ sed -i -e 's/#define FFMPEG_CONFIGURATION.*/#define FFMPEG_CONFIGURATION ""/' ..
 	--enable-decoder=pcm* \
 	--enable-decoder=dsd* \
 	--enable-decoder=dca \
+	--enable-decoder=mlp \
+	--enable-decoder=truehd \
 	\
 	--enable-decoder=ssa \
 	--enable-decoder=ass \
 	--enable-decoder=dvbsub \
 	--enable-decoder=dvdsub \
+	--enable-decoder=hdmv_pgs_subtitle \
 	--enable-decoder=srt \
 	--enable-decoder=stl \
 	--enable-decoder=subrip \
