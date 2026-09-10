@@ -36,9 +36,13 @@ azxcvn/libmpv-android-video-build-thumbnail  (本项目)
   - `--enable-decoder=pgssub` —— **PGS(蓝光位图)字幕**。上游白名单开了
     `dvbsub`/`dvdsub`/`ass`/`subrip` 等,唯独漏了 PGS,导致内嵌 PGS 字幕轨
     **能列出、选中后完全不显示**。
-  - `--enable-decoder=mlp` —— **Dolby TrueHD(MLP FBA)音频**。上游白名单里有
-    `ac3`/`eac3`/`dca`(DTS),唯独没有 MLP/TrueHD,切到该音轨会**完全无声**
+  - `--enable-decoder=truehd` + `--enable-decoder=mlp` —— **Dolby TrueHD(MLP FBA)音频**。
+    上游白名单里有 `ac3`/`eac3`/`dca`(DTS),唯独没有 MLP/TrueHD,切到该音轨会**完全无声**
     (mpv 只在错误日志里报 `ad`/`ao` 错误)。
+    ⚠️ **两个都必须写**:`mlpdec.c` 里 `ff_mlp_decoder` 与 `ff_truehd_decoder` 是**两个独立的
+    解码器**(`AV_CODEC_ID_MLP` / `AV_CODEC_ID_TRUEHD`),各自包在独立的
+    `#if CONFIG_MLP_DECODER` / `#if CONFIG_TRUEHD_DECODER` 里,**只写 `mlp` 不会带出 `truehd`**
+    (实测过:只开 mlp 时 `ff_truehd_decoder` 符号为 0,TrueHD 轨仍然无声)。
   - 字幕解码器改为**顺手全开**(`*_subtitle` + 逐个列举: `ass`/`ssa`/`dvbsub`/`dvdsub`/
     `pgssub`/`movtext`/`pjs`/`srt`/`stl`/`subrip`/`subviewer`/`subviewer1`/`text`/`vplayer`/
     `webvtt`/`xsub`/`sami`/`microdvd`/`mpl2`/`realtext`/`jacosub`/`dvb_teletext`),

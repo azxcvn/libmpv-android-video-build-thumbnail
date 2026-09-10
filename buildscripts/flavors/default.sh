@@ -30,8 +30,11 @@ sed -i -e 's/#define FFMPEG_CONFIGURATION.*/#define FFMPEG_CONFIGURATION ""/' ..
 # 本项目在解码器白名单上的自有改动(同步上游时勿被覆盖):
 #   * 字幕解码器改为顺手全开(--enable-decoder=*_subtitle + 逐个列举),
 #     因为上游白名单漏了 pgssub(PGS 位图字幕)→ 内嵌 PGS 轨选中后完全不显示。
-#   * 补 --enable-decoder=mlp(组件名就是 mlp;mlpdec.c 里 mlp/truehd 是同一文件的
-#     两个符号,没有 truehd 这个组件名),上游白名单漏了它 → TrueHD 音轨完全无声。
+#   * 补 --enable-decoder=truehd + --enable-decoder=mlp:上游白名单里没有 MLP/TrueHD
+#     → TrueHD 音轨完全无声。**两个都要写**:mlpdec.c 里 ff_mlp_decoder 与
+#     ff_truehd_decoder 各自有独立的 #if CONFIG_MLP_DECODER / #if CONFIG_TRUEHD_DECODER
+#     开关(是不同的 AVCodecID),只写 mlp 不会带出 truehd。
+#     判断是否真的编进去了,看符号:ff_mlp_decoder 与 ff_truehd_decoder 应各出现 1 次。
 #   * 末尾两条 --disable-decoder=libaribcaption/libzvbi_teletext 用来兜住
 #     *_subtitle 通配(这两个需要外部库),**必须排在 enable 之后**(后者覆盖前者)。
 # 另外:configure 的组件名 ≠ codec 日志名(如 hdmv_pgs_subtitle 的组件名是 pgssub),
@@ -141,6 +144,7 @@ sed -i -e 's/#define FFMPEG_CONFIGURATION.*/#define FFMPEG_CONFIGURATION ""/' ..
 	--enable-decoder=pcm* \
 	--enable-decoder=dsd* \
 	--enable-decoder=dca \
+	--enable-decoder=truehd \
 	--enable-decoder=mlp \
 	\
 	--enable-decoder=*_subtitle \
