@@ -24,6 +24,18 @@ cpuflags=
 [[ "$ndk_triple" == "arm"* ]] && cpuflags="$cpuflags -mfpu=neon -mcpu=cortex-a8"
 
 sed -i -e 's/#define FFMPEG_CONFIGURATION.*/#define FFMPEG_CONFIGURATION ""/' ../configure
+
+# 注意:下面是一个反斜杠续行的长命令,续行中间**不能**插 # 注释(bash 会把注释行
+# 当成参数接到上一行),所以本文件的说明一律写在这里。
+# 本项目在解码器白名单上的自有改动(同步上游时勿被覆盖):
+#   * 字幕解码器改为顺手全开(--enable-decoder=*_subtitle + 逐个列举),
+#     因为上游白名单漏了 pgssub(PGS 位图字幕)→ 内嵌 PGS 轨选中后完全不显示。
+#   * 补 --enable-decoder=mlp(组件名就是 mlp;mlpdec.c 里 mlp/truehd 是同一文件的
+#     两个符号,没有 truehd 这个组件名),上游白名单漏了它 → TrueHD 音轨完全无声。
+#   * 末尾两条 --disable-decoder=libaribcaption/libzvbi_teletext 用来兜住
+#     *_subtitle 通配(这两个需要外部库),**必须排在 enable 之后**(后者覆盖前者)。
+# 另外:configure 的组件名 ≠ codec 日志名(如 hdmv_pgs_subtitle 的组件名是 pgssub),
+# 写错会在 configure 阶段报 Unknown option,详见仓库 README。
 ../configure \
 	--target-os=android --enable-cross-compile --cross-prefix=$ndk_triple- --ar=$AR --cc=$CC --ranlib=$RANLIB \
 	--arch=${ndk_triple%%-*} --cpu=$cpu --pkg-config=pkg-config \
@@ -130,13 +142,15 @@ sed -i -e 's/#define FFMPEG_CONFIGURATION.*/#define FFMPEG_CONFIGURATION ""/' ..
 	--enable-decoder=dsd* \
 	--enable-decoder=dca \
 	--enable-decoder=mlp \
-	--enable-decoder=truehd \
 	\
-	--enable-decoder=ssa \
+	--enable-decoder=*_subtitle \
 	--enable-decoder=ass \
+	--enable-decoder=ssa \
 	--enable-decoder=dvbsub \
 	--enable-decoder=dvdsub \
-	--enable-decoder=hdmv_pgs_subtitle \
+	--enable-decoder=pgssub \
+	--enable-decoder=movtext \
+	--enable-decoder=pjs \
 	--enable-decoder=srt \
 	--enable-decoder=stl \
 	--enable-decoder=subrip \
@@ -145,7 +159,15 @@ sed -i -e 's/#define FFMPEG_CONFIGURATION.*/#define FFMPEG_CONFIGURATION ""/' ..
 	--enable-decoder=text \
 	--enable-decoder=vplayer \
 	--enable-decoder=webvtt \
-	--enable-decoder=movtext \
+	--enable-decoder=xsub \
+	--enable-decoder=sami \
+	--enable-decoder=microdvd \
+	--enable-decoder=mpl2 \
+	--enable-decoder=realtext \
+	--enable-decoder=jacosub \
+	--enable-decoder=dvb_teletext \
+	--disable-decoder=libaribcaption \
+	--disable-decoder=libzvbi_teletext \
 	\
 	--enable-demuxer=concat \
 	--enable-demuxer=data \

@@ -33,23 +33,37 @@ azxcvn/libmpv-android-video-build-thumbnail  (本项目)
   `buildscripts/*.jar`。
 - 修复 zip 解压后丢失的 `.sh` / `gradlew` 可执行权限。
 - **补齐 `flavors/default.sh` 的解码器白名单**(本项目自有改动,同步上游时勿被覆盖):
-  - `--enable-decoder=hdmv_pgs_subtitle` —— **PGS(蓝光位图)字幕**。上游白名单开了
+  - `--enable-decoder=pgssub` —— **PGS(蓝光位图)字幕**。上游白名单开了
     `dvbsub`/`dvdsub`/`ass`/`subrip` 等,唯独漏了 PGS,导致内嵌 PGS 字幕轨
     **能列出、选中后完全不显示**。
-  - `--enable-decoder=mlp` + `--enable-decoder=truehd` —— **Dolby TrueHD(MLP FBA)音频**。
-    注意 `--enable-demuxer=truehd` **不等于**有解码器:`strings libmpv.so` 里能搜到
-    `truehd` 只是解封装器的名字,没有解码器时切到该音轨会**完全无声**(mpv 只在错误日志里
-    报 `ad`/`ao` 错误)。
+  - `--enable-decoder=mlp` —— **Dolby TrueHD(MLP FBA)音频**。上游白名单里有
+    `ac3`/`eac3`/`dca`(DTS),唯独没有 MLP/TrueHD,切到该音轨会**完全无声**
+    (mpv 只在错误日志里报 `ad`/`ao` 错误)。
+  - 字幕解码器改为**顺手全开**(`*_subtitle` + 逐个列举: `ass`/`ssa`/`dvbsub`/`dvdsub`/
+    `pgssub`/`movtext`/`pjs`/`srt`/`stl`/`subrip`/`subviewer`/`subviewer1`/`text`/`vplayer`/
+    `webvtt`/`xsub`/`sami`/`microdvd`/`mpl2`/`realtext`/`jacosub`/`dvb_teletext`),
+    末尾 `--disable-decoder=libaribcaption --disable-decoder=libzvbi_teletext`
+    兜住 `*_subtitle`(这两个需要外部库)。
 
-> 排查方法(改完/换内核后可自检):
+> ⚠️ **FFmpeg configure 的组件名 ≠ codec 的日志名**,写错会在 configure 阶段直接报
+> `Unknown option`。本项目踩过的两个具体坑:
+> | codec 日志名 | configure 组件名 | 说明 |
+> |---|---|---|
+> | `hdmv_pgs_subtitle` | **`pgssub`** | 组件名取自符号 `ff_pgssub_decoder`,不含 `hdmv_` 前缀 |
+> | `truehd` | **`mlp`** | `mlpdec.c` 里 `ff_mlp_decoder` 与 `ff_truehd_decoder` 是**同一文件的两个符号**,但组件名只有一个 `mlp`;写 `--enable-decoder=truehd` 会报错 |
+>
+> 排查方法(改完/换内核后可自检)。**只用符号名**(`ff_<组件名>_decoder`)判断,
+> 短名/长名字符串在 `--enable-small` 下会被合并进一个大 blob,互相包含、极易误判:
 > ```bash
-> # 该解码器的 "名字字符串"(短名)应各出现 1 次;若为 0 说明没编进去
-> strings libmpv.so | grep -c '^hdmv_pgs_subtitle$'
-> strings libmpv.so | grep -c '^truehd$'
-> strings libmpv.so | grep -c '^mlp$'
+> # 期望各出现 1 次(0 = 没编进去)
+> strings libmpv.so | grep -c 'ff_pgssub_decoder'
+> strings libmpv.so | grep -c 'ff_mlp_decoder'
+> strings libmpv.so | grep -c 'ff_truehd_decoder'
+> # 想一次列出全部已编入的解码器组件名:
+> strings libmpv.so | grep -o 'ff_[a-z0-9_]*_decoder' | sort -u
 > ```
-> 另外 `--enable-small` 会把 codec 的 `long_name` 编掉,所以**不要**用长名(如
-> `HDMV Presentation Graphic Stream subtitles`、`TrueHD`)去判断,会误判成"没编进去"。
+> 反例(误导过我们):`strings libmpv.so | grep truehd` 会命中
+> `--enable-demuxer=truehd` 带来的**解封装器**名字,据此判断"解码器已编入"是错的。
 
 ## 产物
 
