@@ -42,7 +42,7 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
       - uses: nttld/setup-ndk@v1
         with:
           link-to-sdk: true
