@@ -1,8 +1,10 @@
 diff --git a/include/mpv/client.h b/include/mpv/client.h
-index 85cff63..db46437 100644
 --- a/include/mpv/client.h
 +++ b/include/mpv/client.h
-@@ -2025,6 +2025,39 @@ MPV_DEFINE_SYM_PTR(mpv_get_wakeup_pipe)
+@@ -2023,10 +2023,44 @@ MPV_DEFINE_SYM_PTR(mpv_get_wakeup_pipe)
+ #define mpv_hook_continue pfn_mpv_hook_continue
+ MPV_DEFINE_SYM_PTR(mpv_get_wakeup_pipe)
+ #define mpv_get_wakeup_pipe pfn_mpv_get_wakeup_pipe
  
  #endif
  
@@ -39,22 +41,25 @@ index 85cff63..db46437 100644
 +MPV_EXPORT void mk_thumbnail_clear_cache(void);
 +
 +
++
  #ifdef __cplusplus
  }
  #endif
+ 
 diff --git a/meson.build b/meson.build
-index 5ffe559..ae05627 100644
 --- a/meson.build
 +++ b/meson.build
-@@ -134,6 +134,7 @@ sources = files(
+@@ -140,7 +140,8 @@ sources = files(
      'input/keycodes.c',
  
      ## Misc
-+    'player/thumbnail.c',
      'misc/bstr.c',
++    'player/thumbnail.c',
      'misc/charset_conv.c',
      'misc/codepoint_width.c',
-@@ -479,6 +480,7 @@ endif
+     'misc/dispatch.c',
+@@ -491,7 +491,8 @@ endif
+ 
  features += {'android': host_machine.system() == 'android'}
  if features['android']
      dependencies += cc.find_library('android')
@@ -64,7 +69,6 @@ index 5ffe559..ae05627 100644
                       'video/out/android_common.c',
 diff --git a/player/thumbnail.c b/player/thumbnail.c
 new file mode 100644
-index 0000000..49f92ca
 --- /dev/null
 +++ b/player/thumbnail.c
 @@ -0,0 +1,422 @@

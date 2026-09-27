@@ -11,6 +11,7 @@ for dep_path in "${PATCHES[@]}"; do
         echo Patching $dep
         git reset --hard
         for patch in "${patches[@]}"; do
+            [ -f "$patch" ] || continue
             echo Applying $patch
             git apply "$ROOT/$patch"
         done
