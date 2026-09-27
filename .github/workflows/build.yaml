@@ -55,12 +55,25 @@ jobs:
       - name: Bundle (default)
         working-directory: ./buildscripts
         run: |
+          set -e
           sed -i -e 's/sudo//g' *.sh
           sed -i 's/download-sdk\.sh/download-sdk-debian\.sh/g' download.sh
-          sed -i -e '/git reset --hard/d' patch.sh
           sudo chmod +x include/download-sdk-debian.sh
           sudo chmod +x bundle_default.sh
+          # 1) 先预检补丁：--check 只干跑、不落盘，不影响后面的 bundle_default.sh。
+          #    这样补丁有问题会在 5 分钟内红在这，而不是半小时后拿到一个没打补丁的包。
+          ./download.sh
+          ./patch.sh --check-only
+          # 2) 构建 + 打包；bundle_default.sh 自己没有 set -e，
+          #    这里必须显式检查返回值，否则构建中途失败也会被吞掉
           ./bundle_default.sh
+          # 3) 产物断言（构建后，确认补丁真的进了二进制与 jar）
+          echo "== 校验产物 =="
+          grep -q 'mk_thumbnail_grab'    deps/mpv/include/mpv/client.h
+          test -f deps/mpv/player/thumbnail.c
+          test -f prefix/arm64-v8a/usr/local/lib/libmpv.so
+          test -f default-arm64-v8a.jar
+          echo "OK: 补丁预检与产物校验全部通过"
       - uses: actions/upload-artifact@v4
         with:
           name: artifact
