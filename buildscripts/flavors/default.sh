@@ -36,8 +36,17 @@ sed -i -e 's/#define FFMPEG_CONFIGURATION.*/#define FFMPEG_CONFIGURATION ""/' ..
 #       - 白名单漏 pgssub(PGS 蓝光位图字幕)→ 内嵌 PGS 轨选中后完全不显示
 #       - 白名单漏 truehd(注意 mlp 不带出 truehd;mlpdec.c 里 ff_mlp_decoder 与
 #         ff_truehd_decoder 是两个独立解码器/独立 CONFIG 开关)→ TrueHD 音轨无声
-#     全开后不再有"漏写"这一类问题。协议(protocol)/编码器(encoder)/滤镜(filter)
-#     仍保持上游的精确白名单,未改动。
+#     全开后不再有"漏写"这一类问题。协议(protocol)/编码器(encoder)仍保持上游的
+#     精确白名单,未改动。
+#   * 滤镜(filter):在上游白名单(overlay,equalizer)之上**补开播放器音效用到的
+#     音频滤镜**——pan,dynaudnorm,acompressor,lowshelf,extrastereo。
+#     原因:滤镜漏编同样是**静默失效**——App 里的"反向立体声/音量标准化/动态范围
+#     压缩/低音增强/虚拟环绕"会让 mpv 建滤镜图失败,整条音频链初始化失败 →
+#     **整段没声音**(xiaomiao-player issue #8)。核对滤镜是否编入同样看**符号名**
+#     ff_af_<滤镜名>(如 ff_af_equalizer),不要拿短名字符串判断:
+#     本仓库此前就是这样漏掉了这几个滤镜。
+#     滤镜实现位置:lowshelf/equalizer 在 af_biquads.c,acompressor 在
+#     af_sidechaincompress.c(CONFIG_ACOMPRESSOR_FILTER)。
 #   * 与仓库自带的 flavors/full.sh 同一套依赖(depinfo.sh 里 default 与 full 的
 #     dep_ffmpeg/dep_mpv 完全一致,都不带 libx264/libvpx/libvorbis),故全开是可行的。
 #     同步上游时,若上游 default.sh 又新增白名单,直接按本文件的 --enable-decoders
@@ -106,6 +115,11 @@ sed -i -e 's/#define FFMPEG_CONFIGURATION.*/#define FFMPEG_CONFIGURATION ""/' ..
 	\
 	--enable-filter=overlay \
 	--enable-filter=equalizer \
+	--enable-filter=pan \
+	--enable-filter=dynaudnorm \
+	--enable-filter=acompressor \
+	--enable-filter=lowshelf \
+	--enable-filter=extrastereo \
 	\
 	--enable-protocol=async \
 	--enable-protocol=cache \
